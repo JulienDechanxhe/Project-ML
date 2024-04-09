@@ -51,3 +51,8 @@ for i, contour in enumerate(contours):
 
     # Enregistrer chaque lettre
     cv2.imwrite(os.path.join(Path, f'mot_{i}.png.jpg'), letter)
+
+def jpg_to_mnist(filepath):
+    image = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
+
+    return cv2.resize(image, (28, 28), interpolation = cv2.INTER_CUBIC)
