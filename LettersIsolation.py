@@ -1,5 +1,6 @@
 import cv2
 import os
+import numpy as np
 """
     Ce script prend une image (en format jpg) d'un mot et donne en sortie des images (en format jpg) de chaque lettre
     du mot, triées dans l'ordre imposé par le mot. La dernière image correspond au mot en lui-même et peut être oubliée.
@@ -9,28 +10,44 @@ import os
     la dimension du contour et on enregistre l'image.
 """
 # Loading the picture
-PATH = 'C:/Users/Portable/Documents/Master 2/Machine Learning and Big Data Processing/Projet ML/Quantum2.jpg'
-Path = 'C:/Users/Portable/Documents/Master 2/Machine Learning and Big Data Processing/Projet ML'
-image = cv2.imread(PATH, 0)  # Getting the input image in grayscale
+PATH = os.path.join(os.getcwd(), "Downloads","HelloWorld.jpg")
+Path =  os.path.join(os.getcwd(), "Downloads")
 
-# Setting a value 0 or 1 to each pixel to have an image "black and white" (more easy to then find contours)
-_, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+# Charger l'image
+image = cv2.imread(PATH, 0)  # Convertir en niveaux de gris
 
-# Contours detection : Donne une liste des contours (chaque élément est une liste de points)
-contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+# Filtrer le bruit de fond
+background = cv2.GaussianBlur(image, (155, 155), 0)
+foreground = cv2.absdiff(image, background)
 
-# Contours filtering to eliminate the smallest ones (criterion : surface area higher than a certain threshold)
-contours = [contour for contour in contours if cv2.contourArea(contour) > 500]
+_, foreground_thresh = cv2.threshold(foreground, 23, 255, cv2.THRESH_BINARY)
 
-# Sorting contours in the order of the words
-contours = sorted(contours, key=lambda x: cv2.boundingRect(x)[1], reverse=True)
+# Afficher l'image seuillée après la soustraction du bruit de fond
+cv2.imshow('Image seuillée', foreground_thresh)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
-# Letters segmentation
+# Contours detection
+contours, _ = cv2.findContours(foreground_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# Filtrer les contours pour éliminer les plus petits
+contours = [contour for contour in contours if cv2.contourArea(contour) > 200]
+
+# Trier les contours dans l'ordre du mot
+contours = sorted(contours, key=lambda x: cv2.boundingRect(x)[0])
+
+# Afficher les contours sur l'image
+contour_img = cv2.drawContours(cv2.cvtColor(foreground_thresh, cv2.COLOR_GRAY2BGR), contours, -1, (0, 255, 0), 2)
+cv2.imshow('Contours', contour_img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+# Segmenter les lettres
 for i, contour in enumerate(contours):
     x, y, w, h = cv2.boundingRect(contour)
 
-    # Cropping the image to obtain the letter
-    letter = binary[y:y + h, x:x + w]
+    # Découper l'image pour obtenir la lettre
+    letter = foreground_thresh[y:y + h, x:x + w]
 
-    # Save each letter
+    # Enregistrer chaque lettre
     cv2.imwrite(os.path.join(Path, f'mot_{i}.png.jpg'), letter)
