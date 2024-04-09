@@ -11,29 +11,31 @@ import numpy as np
 """
 
 # Chemin de l'image
-PATH = os.path.join(os.getcwd(), "Downloads", "HelloWorld.jpg")
+PATH = os.path.join(os.getcwd(), "Downloads", "perruche.jpg")
 Path = os.path.join(os.getcwd(), "Downloads")
 
 # Charger l'image
 image = cv2.imread(PATH, cv2.IMREAD_GRAYSCALE)
+
+image = cv2.GaussianBlur(image, (5, 7), cv2.BORDER_DEFAULT)
 
 se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
 bg = cv2.morphologyEx(image, cv2.MORPH_DILATE, se)
 out_gray = cv2.divide(image, bg, scale=255)
 out_binary = cv2.threshold(out_gray, 0, 255, cv2.THRESH_OTSU)[1]
 out_binary = cv2.bitwise_not(out_binary)
+
 # Afficher l'image binarisée
 cv2.imshow('Image binarisée', out_binary)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-# Remove vertical and horizontal lines
 
 # Contours detection sur l'image binarisée
 contours, _ = cv2.findContours(out_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 # Filtrer les contours pour éliminer les plus petits
-contours = [contour for contour in contours if cv2.contourArea(contour) > 150]
+contours = [contour for contour in contours if cv2.contourArea(contour) > 50]
 
 # Trier les contours dans l'ordre du mot
 contours = sorted(contours, key=lambda x: cv2.boundingRect(x)[0])
