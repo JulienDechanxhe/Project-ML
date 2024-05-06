@@ -13,59 +13,27 @@ import matplotlib.pyplot as plt
     la dimension du contour et on enregistre l'image.
 """
 
-def mirror_image(image):
-    # Création d'une nouvelle matrice pour l'image miroir
-    mirrored_image = [[0 for _ in range(32)] for _ in range(32)]
+def resize_with_padding(image, target_size):
+    # Calculer les dimensions du padding
+    h, w = image.shape[:2]
+    ratio = min(target_size[0] / w, target_size[1] / h)
+    new_w = int(w * ratio)
+    new_h = int(h * ratio)
+    pad_w = (target_size[0] - new_w) // 2
+    pad_h = (target_size[1] - new_h) // 2
 
-    # Parcourir l'image d'origine et inverser l'ordre des pixels dans chaque ligne
-    for i in range(32):
-        # Inverser l'ordre des pixels dans la ligne
-        mirrored_image[i] = image[i][::-1]
+    # Ajouter le padding
+    padded_image = cv2.copyMakeBorder(image, pad_h, pad_h, pad_w, pad_w, cv2.BORDER_CONSTANT, value=255)
 
-    return mirrored_image
-
-def rotate_image_90_clockwise(image):
-    # Création d'une nouvelle matrice pour l'image pivotée
-    rotated_image = [[0 for _ in range(32)] for _ in range(32)]
-
-    # Parcourir l'image d'origine et copier les pixels dans la nouvelle position
-    for i in range(32):
-        for j in range(32):
-            # Calculer la nouvelle position du pixel
-            new_i = j
-            new_j = 31 - i  # Rotation de 90 degrés dans le sens des aiguilles d'une montre
-
-            # Copier la valeur du pixel dans sa nouvelle position
-            rotated_image[new_i][new_j] = image[i][j]
-
-    return rotated_image
-
-def resize_image(image, new_width, new_height):
-    # Calculer les facteurs d'échelle en fonction des dimensions d'origine et de destination
-    scale_x = new_width / 32
-    scale_y = new_height / 32
-
-    # Créer une nouvelle matrice pour l'image redimensionnée
-    resized_image = [[0 for _ in range(new_width)] for _ in range(new_height)]
-
-    # Parcourir la nouvelle matrice et interpoler les valeurs de pixel
-    for i in range(new_height):
-        for j in range(new_width):
-            # Calculer les coordonnées correspondantes dans l'image d'origine
-            original_x = int(j / scale_x)
-            original_y = int(i / scale_y)
-
-            # Copier la valeur du pixel de l'image d'origine à l'emplacement correspondant dans l'image redimensionnée
-            resized_image[i][j] = image[original_y][original_x]
+    # Redimensionner l'image
+    resized_image = cv2.resize(padded_image, target_size, interpolation=cv2.INTER_AREA)
 
     return resized_image
 
-def isolate_letters(filepath):
-    # Chemin de l'image
-    PATH = os.path.join(filepath)
+def isolate_letters(filepath, display_contours = True):
 
     # Charger l'image
-    image = cv2.imread(PATH, cv2.IMREAD_GRAYSCALE)
+    image = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
 
     image = cv2.GaussianBlur(image, (5, 7), cv2.BORDER_DEFAULT)
 
@@ -92,31 +60,30 @@ def isolate_letters(filepath):
 
 
     # Afficher les contours sur l'image
-    contour_img = cv2.drawContours(cv2.cvtColor(out_binary, cv2.COLOR_GRAY2BGR), contours, -1, (0, 255, 0), 2)
-    # cv2.imshow("Contours", contour_img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
+    if display_contours:
+        contour_img = cv2.drawContours(cv2.cvtColor(out_binary, cv2.COLOR_GRAY2BGR), contours, -1, (0, 255, 0), 2)
+        cv2.imshow("Contours", contour_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     # Segmenter les lettres
     for i, contour in enumerate(contours):
         x, y, w, h = cv2.boundingRect(contour)
         # Découper l'image pour obtenir la lettre
 
-        letter = out_binary[y:y + h, x:x + w]
+        letter = cv2.bitwise_not(out_binary[y:y + h, x:x + w])
 
         # Compress to 28 x 28 pixelized image
-        letter = cv2.resize(letter, (28, 28), interpolation = cv2.INTER_CUBIC)
-
-        letter = (letter - np.mean(letter))/np.std(letter)
-
-        letter =  np.array(tf.pad(tensor=letter, paddings=[[2, 2], [2, 2]]))
-
+        letter = resize_with_padding(letter, (32, 32))
+        
         # Rotate and inverse the image to match the mnist format
-        letter =  rotate_image_90_clockwise( rotate_image_90_clockwise(rotate_image_90_clockwise( mirror_image(letter))))
-
-        # Dezoom
-        letter = resize_image(letter, 27, 27)
-        letter =  np.array(tf.pad(tensor=letter, paddings=[[3, 3], [3, 3]]))
+        letter = cv2.rotate(cv2.flip(letter,1), cv2.ROTATE_90_COUNTERCLOCKWISE) 
     
+        # Dezoom
+        letter = cv2.resize(letter, (27, 27))
+
+        letter = cv2.bitwise_not(np.array(letter))
+
+        letter =  np.array(tf.pad(tensor=letter, paddings=[[2, 3], [2, 3]]))
+        letter = (letter - np.mean(letter))/np.std(letter)
         yield letter
