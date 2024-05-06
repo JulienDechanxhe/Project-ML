@@ -3,6 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import torch
 
 """
     Ce script prend une image (en format jpg) d'un mot et donne en sortie des images (en format jpg) de chaque lettre
@@ -35,19 +36,16 @@ def isolate_letters(filepath, display_contours = True):
     # Charger l'image
     image = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
 
-    image = cv2.GaussianBlur(image, (5, 7), cv2.BORDER_DEFAULT)
+    image = cv2.GaussianBlur(image, (5, 5), cv2.BORDER_DEFAULT)
 
     se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
     bg = cv2.morphologyEx(image, cv2.MORPH_DILATE, se)
+
     out_gray = cv2.divide(image, bg, scale=255)
+
+
     out_binary = cv2.threshold(out_gray, 0, 255, cv2.THRESH_OTSU)[1]
     out_binary = cv2.bitwise_not(out_binary)
-
-    # Afficher l'image binarisée
-    # cv2.imshow('Image binarisée', out_binary)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
 
     # Contours detection sur l'image binarisée
     contours, _ = cv2.findContours(out_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -86,4 +84,9 @@ def isolate_letters(filepath, display_contours = True):
 
         letter =  np.array(tf.pad(tensor=letter, paddings=[[2, 3], [2, 3]]))
         letter = (letter - np.mean(letter))/np.std(letter)
+
+        letter = np.expand_dims(letter, axis=-1)
+
+        # Ajouter une dimension pour le batch, tranformation en torch.tensor et permutation des index
+        letter = torch.tensor(np.expand_dims(letter, axis=0), dtype = torch.float32).permute(0, 3, 1, 2)
         yield letter
